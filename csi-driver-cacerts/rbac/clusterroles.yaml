@@ -1,0 +1,57 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: csi-driver-cacerts
+  namespace: csi-driver-cacerts
+rules:
+  - apiGroups: [ "" ]
+    resources: [ "secrets" ]
+    verbs: [ "watch", "get", "list" ]
+  - apiGroups: [ "" ]
+    resources: [ "nodes" ]
+    verbs: [ "watch", "get", "list" ]
+  - apiGroups: [ "cert-manager.io" ]
+    resources: [ "issuers", "clusterissuers", "certificates" ]
+    verbs: [ "watch", "get", "list" ]
+  - apiGroups: [ "cacerts.csi.cert-manager.io" ]
+    resources: [ "*" ]
+    verbs: [ "*" ]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: appscode:cacerts-driver:admin
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+rules:
+  - apiGroups:
+      - cacerts.csi.cert-manager.io
+    resources:
+      - caproviderclasses
+    verbs: [ "*" ]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: appscode:cacerts-driver:edit
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-edit: "true"
+rules:
+  - apiGroups:
+      - cacerts.csi.cert-manager.io
+    resources:
+      - caproviderclasses
+    verbs: ["create", "delete", "deletecollection", "patch", "update"]
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: appscode:cacerts-driver:view
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-view: "true"
+rules:
+  - apiGroups:
+      - cacerts.csi.cert-manager.io
+    resources:
+      - caproviderclasses
+    verbs: ["get", "list", "watch"]

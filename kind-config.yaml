@@ -1,0 +1,5 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: spire-csi-driver-cacerts
+nodes:
+  - role: control-plane
