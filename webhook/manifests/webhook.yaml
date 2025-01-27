@@ -1,0 +1,31 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: cacerts-webhook
+webhooks:
+  - name: webhook.cacerts.csi.cert-manager.io
+    admissionReviewVersions: ["v1"]
+    sideEffects: None
+    timeoutSeconds: 5
+    failurePolicy: Ignore
+    clientConfig:
+      service:
+        name: cacerts-webhook
+        namespace: csi-driver-cacerts
+        path: "/mutate"
+        port: 8443
+      caBundle: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUQxVENDQXIyZ0F3SUJBZ0lRVUlDVE5ZbzFLdUVtczVuUUhUVXlqVEFOQmdrcWhraUc5dzBCQVFzRkFEQjAKTVFzd0NRWURWUVFHRXdKVlV6RWRNQnNHQTFVRUNoTVVSWGhoYlhCc1pTQlBjbWRoYm1sNllYUnBiMjR4RkRBUwpCZ05WQkFNVEMyVjRZVzF3YkdVdWIzSm5NVEF3TGdZRFZRUUZFeWN4TURjd01EVTRNemswTVRZM05qTXlPRFEzCk16WTRNREl6TVRRM01EazNOVGd4T1RRek1UY3dIaGNOTWpVd01USTNNRFV3TXpBNVdoY05NalV3TVRJNU1EVXcKTXpFNVdqQjBNUXN3Q1FZRFZRUUdFd0pWVXpFZE1Cc0dBMVVFQ2hNVVJYaGhiWEJzWlNCUGNtZGhibWw2WVhScApiMjR4RkRBU0JnTlZCQU1UQzJWNFlXMXdiR1V1YjNKbk1UQXdMZ1lEVlFRRkV5Y3hNRGN3TURVNE16azBNVFkzCk5qTXlPRFEzTXpZNE1ESXpNVFEzTURrM05UZ3hPVFF6TVRjd2dnRWlNQTBHQ1NxR1NJYjNEUUVCQVFVQUE0SUIKRHdBd2dnRUtBb0lCQVFEc2hvTk15ekZzZXEwanVmMGJ0dmR1TkMreWdFblRXdjNUTEROcE9vSzd6VlZNaCtZcApsZW9USzJ5TWV4R2F4aERSckgrZU9rQy8yckhoNCt0a0kxbDl1OEZqd1NLZnNTNGNTTGpwRVZuZE1sNGNKZXVmCnFKREVkazVaOEFWZW16QTdHT05OaEdLVjBWL2pqOWZYZlpBMC9iU3k4dUduLytTMnc3bEFMWlMrZEk3TlIvcWcKRVhwckxmcU9hbXpqYjVodWt6NWVQVTB6T0JOOE16UmZQc0Y4QkVhNTlZZDM5clNaT3c5YlRiMm5mWEFGN1RBegpiWE12N0dRZlZFY2EzMEd2UmdMQTlVTDJldW1pK28xZ25tL294NXlyV1N6UUdlM3h2SDVFYTMxYk95VFM3dE80Ck1EK25lNDJIOUptNWtPbHJLU2ZZdjdubmJsbm1DenVlQ3FBWkFnTUJBQUdqWXpCaE1BNEdBMVVkRHdFQi93UUUKQXdJQkJqQVBCZ05WSFJNQkFmOEVCVEFEQVFIL01CMEdBMVVkRGdRV0JCVExMYjR1dDFxamdUazJKZXFQUmpvdQo4aHpHSmpBZkJnTlZIUkVFR0RBV2hoUnpjR2xtWm1VNkx5OWxlR0Z0Y0d4bExtOXlaekFOQmdrcWhraUc5dzBCCkFRc0ZBQU9DQVFFQXFFZkpPM2NzMU5mRGRMU0hjeUNKeXpjRndMSG54U21SVDgwc3hmV1J6Z2FJY2dWSEdLeE4KK1V5QWRoZFdxSTVZNUlSWVhnVUMzNzYyNkYzdkNQT0N3RGRKeGNzVXJJdDc2NXpzUFVZM3NwUGcvRGhNRmt2NApFcHhmQWYyRW43bEl2S0VkRTNuT1JXWDZxRlBueXFLd1d4c2Npc0RvdlpDQXpNMWQrNVpIRTVkVGg3eXNQYWN2CjRSUXZINjJjL1BIQ1ByeHZqdXRXalprWVk0dDdWSGVyU0RUeW5UemhPWFNXcWFCZy95YWJvSTFzQjdUYm1tTDgKdGxNSUxQb1ArT0dodjExZ3cyRVRuK01Wb0JwQlZnTnJLS3RSbCtTZjZHS1g2bWs1U1o3OU52SHgzOVJwQ25nRAorNGZlSVNZWDlUVXY0dHJlb0VjcWFnbkcwUjRmWUIyTmF3PT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo=
+    rules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE"]
+        resources: ["pods"]
+        scope: "Namespaced"
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values: ["kube-system", "csi-driver-cacerts"]
+    objectSelector:
+      matchLabels:
+        spiffe.io/spire-managed-identity: "true"

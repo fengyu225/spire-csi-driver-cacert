@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cacerts-webhook
+  namespace: csi-driver-cacerts
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cacerts-webhook
+rules:
+  - apiGroups: [ "" ]
+    resources: [ "namespaces" ]
+    verbs: [ "get", "list", "watch" ]
+  - apiGroups: [ "cacerts.csi.cert-manager.io" ]
+    resources: [ "caproviderclasses" ]
+    verbs: [ "get", "list", "watch", "create", "update", "patch", "delete" ]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cacerts-webhook
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cacerts-webhook
+subjects:
+  - kind: ServiceAccount
+    name: cacerts-webhook
+    namespace: csi-driver-cacerts

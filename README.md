@@ -1,85 +1,159 @@
 # Install SPIRE CA Certificate to Container System Trust Store using cert-manager-csi-driver-cacerts
 
-The cert-manager-csi-driver-cacerts allows us to automatically inject CA certificates into the system's default trust store.
+## Overview
 
-## Installation
+- SPIRE issues workload X.509 SVID
+- spiffe-helper sidecar request and refresh certificates from SPIRE
+- Golang workloads reloads TLS certificate at runtime, enabling zero-downtime certificate updates
+- CSI driver for mounting CA certificates into workload trust stores
+- Mutating webhook for automatic CSI volume injection
 
-### 0. Create Kubernetes cluster
+## SPIRE Certificate Flow
+```
+SPIRE Server
+↓ (issues X.509-SVID)
+SPIRE Agent
+↓ (workload attestation)
+spiffe-helper
+↓ (writes to files)
+Certificate Files (svid.pem, key.pem, bundle.pem)
+↓ (file system events)
+Application (this example)
+↓ (updates TLS config)
+TLS Connections
+```
+
+## Certificate Files
+
+spiffe-helper manages these files:
+
+- `svid.pem`: The X.509-SVID certificate
+- `svid_key.pem`: The private key
+- `svid_bundle.pem`: The trust bundle containing the X.509 root certificates
+
+## CSI Driver for CA Certificates
+
+The `csi-driver-cacerts` component automates CA certificate distribution in Kubernetes clusters by:
+1. Mounting CA certificates into container OS default trust stores
+2. Supporting automatic CA certificate updates
+3. Managing CA trust bundles across namespaces
+
+### Architecture
+
+```
+SPIRE Server
+↓ (issues CA certificate)
+Secret (in spire namespace)
+↓ (referenced by)
+CAProviderClass
+↓ (used by)
+CSI Driver
+↓ (mounts to)
+Container OS default trust store
+```
+
+### Components
+1. **CSI Driver**: Mounts CA certificates into pod trust stores
+2. **CAProviderClass**: Specifies which CA certificates to trust
+3. **Mutating Webhook**: Automatically injects CSI volume mounts into pods
+
+### Mutating Webhook
+
+The webhook automatically injects CSI volume mounts into pods with the `spiffe.io/spire-managed-identity: "true"` label. It:
+
+1. Watches pod creation events
+2. Injects CSI volume and mount configurations
+3. Uses SPIRE-issued certificates for TLS
+4. Creates CAProviderClass resources in new namespaces
+
+#### Configuration
+
+1. Deploy the webhook:
 ```bash
-kind create cluster --config kind-config.yaml
+cd webhook
+kubectl apply -k webhook/manifests
 ```
 
-### 1. Deploy SPIRE
+## Example Workloads Setup
 
-Deploy the SPIRE server and agent:
+The project includes example client and server workloads to demonstrate the certificate management:
+
+### Setup
 
 ```bash
-pushd spire/postgres
-docker-compose up -d
-popd
-
-kubectl apply -k spire/
+kubectl apply -k workloads/manifests
 ```
 
-### 2. Install cert-manager-csi-driver-cacerts
+The client can be configured in two ways:
 
+1. Using trust store from SPIRE directly:
+```yaml
+spec:
+  template:
+    metadata:
+      labels:
+        app: client
+        spiffe.io/spire-managed-identity: "true"
+    spec:
+      containers:
+        - name: client
+          args:
+            - --cert-dir=/run/spiffe/certs
+            - --system-certs=false
+          volumeMounts:
+            - name: spiffe-certs
+              mountPath: /run/spiffe/certs
+```
+
+2. Using system trust store with CSI driver:
+```yaml
+spec:
+  template:
+    metadata:
+      labels:
+        app: client
+        spiffe.io/spire-managed-identity: "true"
+    spec:
+      containers:
+        - name: client
+          args:
+            - --cert-dir=/run/spiffe/certs
+            - --system-certs=true
+          volumeMounts:
+            - name: cacerts
+              mountPath: /etc/ssl/certs
+```
+
+### Testing the Setup
+
+1. Deploy SPIRE components:
 ```bash
-kubectl apply -k csi-driver-cacerts/
+cd spire
+kubectl apply -k .
 ```
 
-### 3. Create Test Namespace
-
+2. Deploy CSI driver and webhook:
 ```bash
-kubectl create namespace demo
+cd csi-driver-cacerts
+kubectl apply -k .
 ```
 
-### 4. Create CA Secret
-
-Create a Secret containing the SPIRE CA bundle:
-
+3. Deploy example workloads:
 ```bash
-cat << EOF | kubectl apply -f -
-apiVersion: v1
-kind: Secret
-metadata:
-  name: ca
-  namespace: demo
-type: kubernetes.io/tls
-data:
-  tls.crt: $(kubectl -n spire get cm spire-bundle -o jsonpath='{.data.bundle\.crt}' | base64 | tr -d '\n')
-  tls.key: $(echo "empty" | base64)
-EOF
+cd workloads
+kubectl apply -k .
 ```
 
-### 5. Deploy Test Pod
-
-```
-kubectl apply -k tests/
-```
-
-## Verification
-
-To verify the CA certificates installation:
-
+4. Check client logs for certificate information:
 ```bash
-# Exec into the pod
-kubectl exec -it curl-alpine -n demo -- sh
-
-# Check certificates
-openssl crl2pkcs7 -nocrl -certfile /etc/ssl/certs/ca-certificates.crt | \
-  openssl pkcs7 -print_certs -noout | \
-  grep 'example.org'
+kubectl logs -l app=client -n spiffe-demo -f
 ```
 
-Expected output:
+Example output:
 ```
-subject=C = US, O = Example Organization, CN = example.org, serialNumber = 15813487182433379209190809655230461912
-issuer=C = US, O = Example Organization, CN = example.org, serialNumber = 15813487182433379209190809655230461912
-subject=C = US, O = Example Organization, CN = example.org, serialNumber = 3756855082332013974854847939963196570
-issuer=C = US, O = Example Organization, CN = example.org, serialNumber = 3756855082332013974854847939963196570
+2025/01/23 16:43:09 Certificate Information:
+2025/01/23 16:43:09   Subject: CN=server-service, O=SPIRE, C=US
+2025/01/23 16:43:09   Not Before: 2025-01-23T16:42:55Z
+2025/01/23 16:43:09   Not After: 2025-01-23T16:43:15Z
+2025/01/23 16:43:09   Time until expiration: 5s
 ```
-
-## References 
-
-- [cert-manager-csi-driver-cacerts Documentation](https://github.com/cert-manager/csi-driver-cacerts)
-- [SPIRE Documentation](https://spiffe.io/docs/latest/try/getting-started-k8s/)

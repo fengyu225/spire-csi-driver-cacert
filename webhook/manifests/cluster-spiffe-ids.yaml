@@ -1,0 +1,16 @@
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterSPIFFEID
+metadata:
+  name: webhook-spiffeid
+spec:
+  spiffeIDTemplate: "spiffe://{{ .TrustDomain }}/workload/webhook"
+  podSelector:
+    matchLabels:
+      app: cacerts-webhook
+      spiffe.io/spire-managed-identity: "true"
+  dnsNameTemplates:
+    - cacerts-webhook
+    - cacerts-webhook.csi-driver-cacerts
+    - cacerts-webhook.csi-driver-cacerts.svc
+    - cacerts-webhook.csi-driver-cacerts.svc.cluster.local
+  ttl: 60m

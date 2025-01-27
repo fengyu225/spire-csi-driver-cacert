@@ -2,9 +2,10 @@ apiVersion: cacerts.csi.cert-manager.io/v1alpha1
 kind: CAProviderClass
 metadata:
   name: ca-provider
-  namespace: demo
+  namespace: spiffe-demo
 spec:
   refs:
-    - apiGroup: cert-manager.io
-      kind: Issuer
-      name: ca-issuer
+    - kind: Secret
+      name: ca
+      namespace: spire
+      apiGroup: ""
